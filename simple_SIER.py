@@ -55,7 +55,7 @@ def model():
     x0[ne+1] = 1
     #print 'init', x0
     
-    steps = 600
+    steps = 1500
     arrx = kutta(x0, f, steps, .01)
     
     sus = [e[0] for e in arrx]
