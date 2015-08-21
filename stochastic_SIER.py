@@ -12,16 +12,16 @@ def model():
     bet = .5 #contact rate
     sig = .5 #transfer rate
     gam = .5 #rec rate
-    ne = 2 #number of latent compartments
-    ni = 2 #number of inf compartments
+    ne = 3 #number of latent compartments
+    ni = 10 #number of inf compartments
     t = 0.0 #time
-    ent = 50; #end time
-    inter_size = int(1.0) #size of discrete time interval
-    inter = range(0, ent, inter_size) #discrete intervals
+    ent = 300.0; #end time
+    inter_size = int(4.0) #size of discrete time interval
+    bins = int(ent/inter_size)
     
     
-    ipop = 1000 #inital population
-    iinf = 3 #inital infection
+    ipop = 5000 #inital population
+    iinf = 30 #inital infection
     inf_time = array([-1]*ipop)#records time of infection for each person
     inf_time[0:iinf] = 0
     
@@ -80,10 +80,9 @@ def model():
             g = t+tao-inf_time[inf_person]
             
             b_ppl[sus_person] = g
-            f_ppl[inf_person].append(g)
+            f_ppl[inf_person] = f_ppl[inf_person]+ [g]
             
         elif event <= lam_s+lam_e:
-            
             #move person in one of latent compartments
             comp = 1+choice( [i for i, j in enumerate(map(bool, ppl[1:ne+1] )) if j] ) #pick nonempty latent compartment
 
@@ -91,8 +90,7 @@ def model():
             chosen = choice( ppl[comp] )
             ppl[comp].remove(chosen)
             ppl[comp+1].append(chosen)
-        else:
-            
+        elif event <= lam_s+lam_e+lam_i:
             #move person in one of infected compartments
             comp = 1+ne+choice( [i for i, j in enumerate(map(bool, ppl[1+ne:1+ne+ni] )) if j] )
             #print 'event is INF',  ppl[1+ne:1+ne+ni]
@@ -101,34 +99,52 @@ def model():
             ppl[comp].remove(chosen)
             if comp!=ne+ni:
                 ppl[comp+1].append(chosen)
+        else:
+            print 'something bad'
         t = t+tao
         #print 'end step', t
         #print 'ppl status', ppl
+   
+   
+    bdist = [[]]*(bins+1) #backward distributions
+    fdist = [[]]*(bins+1) #forward distributions
+    bmean = [0]*(bins+1) #backeard mean
+    fmean = [0]*(bins+1) #forward mean
     
-    batt = 5 #look at bdist at discrete time batt
-    bdistt = [] #discrete backwards dist at time batt
-    for i in range(ipop):
-        if not b_ppl[i]:
+    for i in range(ipop): # i stands for person
+        if inf_time[i]==-1: #didnt get infected during epidemic
             continue
-        tdic = int( (inf_time[i]-(inf_time[i]%inter_size)) / inter_size ) #discrete time of infection
-        if tdic==batt-1 : #pick out individuals who got sick at batt
-            gdic = int( (b_ppl[i]-(b_ppl[i]%inter_size)) / inter_size ) #dicrete size of gen interval
-            bdistt.append(gdic)
-            
-    fdistt = [] #discrete forward dist at time batt
-    for i in range(ipop):
-        if not f_ppl[i]:
-            continue
-        tdic = int( (inf_time[i]-(inf_time[i]%inter_size)) / inter_size ) #discrete time of infection
-        if tdic==batt-1 :
+        tdic = int( (inf_time[i]-(inf_time[i]%inter_size)) / inter_size ) #sort by discrete time of infection
+        #if b_ppl[i]:
+        #    gdic = int( (b_ppl[i]-(b_ppl[i]%inter_size)) / inter_size ) #dicrete size of gen interval
+        #   bdist[tdic].append(gdic)
+        if f_ppl[i]:
             for e in f_ppl[i]:
                 gdic = int( (e-(e%inter_size)) / inter_size )
-                fdistt.append(gdic) 
+                fdist[tdic] = fdist[tdic] + [gdic]
+    
+    #extract means
+    for i in range(0,len(bdist)):
+        #bmean[i] = mean(bdist[i])
+        if fdist[i]:
+            fmean[i] = mean(fdist[i])
         
-    plt.hist(fdistt,bins=50)
-
+    #print bmean, fmean
+    #print fdist
+    #plt.plot(fmean)
+    #plt.show()
+    return array(fmean)
+    
+def alg():
+    reps = 10
+    mn = model()
+    for i in range(1,reps):
+        mn += model()
+    mn /= reps
+    print mn
+    plt.plot(mn)
     plt.show()
       
-model()
+alg()
     
     
