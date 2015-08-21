@@ -12,16 +12,16 @@ def model():
     bet = .5 #contact rate
     sig = .5 #transfer rate
     gam = .5 #rec rate
-    ne = 3 #number of latent compartments
-    ni = 10 #number of inf compartments
+    ne = 2 #number of latent compartments
+    ni = 2 #number of inf compartments
     t = 0.0 #time
-    ent = 300.0; #end time
-    inter_size = int(4.0) #size of discrete time interval
-    bins = int(ent/inter_size)
+    ent = 50; #end time
+    inter_size = int(2.0) #size of discrete time interval
+    bins = int(ent/inter_size) #number of discrete time intervals
     
     
-    ipop = 5000 #inital population
-    iinf = 30 #inital infection
+    ipop = 1000 #inital population
+    iinf = 25 #inital infection
     inf_time = array([-1]*ipop)#records time of infection for each person
     inf_time[0:iinf] = 0
     
@@ -41,6 +41,7 @@ def model():
     
     b_ppl = [0]*(iinf)+[None]*(ipop-iinf) #backwards interval for ppl
     f_ppl = [[]]*ipop #forwards interval for ppl
+    npp = [] #record number of people in each compartment per time (testing purposes)
     
     b_dist = []
     
@@ -48,8 +49,10 @@ def model():
         s = len(ppl[0]) #numer of susptible
         lat = array( [len(ppl[i]) for i in range(1,1+ne) ] ) #number of latents
         inf = array( [len(ppl[i]) for i in range(1+ne,1+ne+ni) ] ) #number of infected
+        npp.append([s,lat[0],inf[0]])
+        
         if inf.sum()==0:
-            print 'EPIDEMIC ENDED'
+            print 'EPIDEMIC ENDED at', t
             break
         
         ''' how does the actual s[t], i[t] update with the lamda changes
@@ -105,44 +108,58 @@ def model():
         #print 'end step', t
         #print 'ppl status', ppl
    
-   
+    sus_data = [i[0] for i in npp]
+    time_data = range(len(npp))
+    lat_data = [i[1] for i in npp]
+    inf_data = [i[2] for i in npp]
+    
+    #plt.figure(1)
+    #plt.plot(time_data, sus_data, 'r--', time_data, inf_data, 'g--', time_data, lat_data, 'b--')
+    #plt.title('Suseptibles, Latents, Infected evolutions')
+    #plt.show()
+    
     bdist = [[]]*(bins+1) #backward distributions
     fdist = [[]]*(bins+1) #forward distributions
-    bmean = [0]*(bins+1) #backeard mean
-    fmean = [0]*(bins+1) #forward mean
+    bmean = [-1]*(bins+1) #backeard mean
+    fmean = [-1]*(bins+1) #forward mean
     
     for i in range(ipop): # i stands for person
         if inf_time[i]==-1: #didnt get infected during epidemic
             continue
         tdic = int( (inf_time[i]-(inf_time[i]%inter_size)) / inter_size ) #sort by discrete time of infection
-        #if b_ppl[i]:
-        #    gdic = int( (b_ppl[i]-(b_ppl[i]%inter_size)) / inter_size ) #dicrete size of gen interval
-        #   bdist[tdic].append(gdic)
+        if b_ppl[i]:
+            gdic = int( (b_ppl[i]-(b_ppl[i]%inter_size)) / inter_size ) #dicrete size of gen interval
+            bdist[tdic] = bdist[tdic] + [gdic]
         if f_ppl[i]:
             for e in f_ppl[i]:
-                gdic = int( (e-(e%inter_size)) / inter_size )
+                gdic = int( (e-(e%inter_size)) / inter_size )  #dicrete size of gen interval
                 fdist[tdic] = fdist[tdic] + [gdic]
-    
+   
     #extract means
     for i in range(0,len(bdist)):
-        #bmean[i] = mean(bdist[i])
+        if bmean[i]:
+            bmean[i] = mean(bdist[i])
         if fdist[i]:
             fmean[i] = mean(fdist[i])
         
-    #print bmean, fmean
-    #print fdist
-    #plt.plot(fmean)
-    #plt.show()
-    return array(fmean)
+    return [array(fmean), array(bmean)]
     
 def alg():
     reps = 10
-    mn = model()
+    mn = model() #run simlutaion first time
+    fmn = mn[0] #forward means
+    bmn = mn[1] #backward means
+    bins = range(len(fmn)) #number of time intervals
     for i in range(1,reps):
-        mn += model()
-    mn /= reps
-    print mn
-    plt.plot(mn)
+        mn = model() #run simulation again
+        fmn += mn[0]
+        bmn += mn[1]
+    fmn /= reps
+    bmn /= reps
+    
+    plt.figure(2)
+    plt.plot(bins, fmn, 'g', bins, bmn, 'b')
+    plt.title('forward and backward means')
     plt.show()
       
 alg()
