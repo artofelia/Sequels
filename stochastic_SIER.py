@@ -4,23 +4,21 @@ from numpy import *
 from random import *
 import matplotlib.pyplot as plt
 plt.rcdefaults()
-import numpy as np
-import matplotlib.pyplot as plt
 
 def model():
     #parameters
-    bet = .5 #contact rate
-    sig = .5 #transfer rate
-    gam = .5 #rec rate
-    ne = 2 #number of latent compartments
-    ni = 2 #number of inf compartments
+    bet = .7 #contact rate
+    sig = .7 #transfer rate
+    gam = .7 #recovery rate
+    ne = 3 #number of latent compartments
+    ni = 3 #number of inf compartments
     t = 0.0 #time
-    ent = 50; #end time
-    inter_size = int(2.0) #size of discrete time interval
+    ent = 75; #end time
+    inter_size = int(1.0) #size of discrete time interval
     bins = int(ent/inter_size) #number of discrete time intervals
     
     
-    ipop = 1000 #inital population
+    ipop = 15000 #inital population
     iinf = 25 #inital infection
     inf_time = array([-1]*ipop)#records time of infection for each person
     inf_time[0:iinf] = 0
@@ -49,7 +47,7 @@ def model():
         s = len(ppl[0]) #numer of susptible
         lat = array( [len(ppl[i]) for i in range(1,1+ne) ] ) #number of latents
         inf = array( [len(ppl[i]) for i in range(1+ne,1+ne+ni) ] ) #number of infected
-        npp.append([s,lat[0],inf[0]])
+        npp.append([s,lat[0],inf[0], t]) # keep data of few compartments for testing purposes
         
         if inf.sum()==0:
             print 'EPIDEMIC ENDED at', t
@@ -88,16 +86,16 @@ def model():
         elif event <= lam_s+lam_e:
             #move person in one of latent compartments
             comp = 1+choice( [i for i, j in enumerate(map(bool, ppl[1:ne+1] )) if j] ) #pick nonempty latent compartment
-
+            
             #print 'event is LATENT', ppl[comp]
-            chosen = choice( ppl[comp] )
+            chosen = choice( ppl[comp] ) #choose person in compartment
             ppl[comp].remove(chosen)
             ppl[comp+1].append(chosen)
         elif event <= lam_s+lam_e+lam_i:
             #move person in one of infected compartments
             comp = 1+ne+choice( [i for i, j in enumerate(map(bool, ppl[1+ne:1+ne+ni] )) if j] )
             #print 'event is INF',  ppl[1+ne:1+ne+ni]
-
+            
             chosen = choice( ppl[comp] )
             ppl[comp].remove(chosen)
             if comp!=ne+ni:
@@ -109,15 +107,18 @@ def model():
         #print 'ppl status', ppl
    
     sus_data = [i[0] for i in npp]
-    time_data = range(len(npp))
     lat_data = [i[1] for i in npp]
     inf_data = [i[2] for i in npp]
+    time_data = [i[3] for i in npp]
+    plt.figure(1)
+    susplot, = plt.plot(time_data, sus_data, 'r--')
+    infplot, = plt.plot(time_data, inf_data, 'g--')
+    latplot, = plt.plot(time_data, lat_data, 'b--')
+    plt.legend([susplot, infplot, latplot], ["suseptible", "infected first cmpt", "latent first cmpt"])
+    plt.title('Suseptibles, Latents, Infected evolutions')
+    plt.show()
     
-    #plt.figure(1)
-    #plt.plot(time_data, sus_data, 'r--', time_data, inf_data, 'g--', time_data, lat_data, 'b--')
-    #plt.title('Suseptibles, Latents, Infected evolutions')
-    #plt.show()
-    
+    #calculate intervals
     bdist = [[]]*(bins+1) #backward distributions
     fdist = [[]]*(bins+1) #forward distributions
     bmean = [-1]*(bins+1) #backeard mean
@@ -129,7 +130,7 @@ def model():
         tdic = int( (inf_time[i]-(inf_time[i]%inter_size)) / inter_size ) #sort by discrete time of infection
         if b_ppl[i]:
             gdic = int( (b_ppl[i]-(b_ppl[i]%inter_size)) / inter_size ) #dicrete size of gen interval
-            bdist[tdic] = bdist[tdic] + [gdic]
+            bdist[tdic] = bdist[tdic] + [gdic] #add discrete gen interval to backwards distribution at discrete time
         if f_ppl[i]:
             for e in f_ppl[i]:
                 gdic = int( (e-(e%inter_size)) / inter_size )  #dicrete size of gen interval
@@ -145,7 +146,7 @@ def model():
     return [array(fmean), array(bmean)]
     
 def alg():
-    reps = 10
+    reps = 1 #number of times to repeat algorithm
     mn = model() #run simlutaion first time
     fmn = mn[0] #forward means
     bmn = mn[1] #backward means
@@ -158,8 +159,10 @@ def alg():
     bmn /= reps
     
     plt.figure(2)
-    plt.plot(bins, fmn, 'g', bins, bmn, 'b')
+    fmplot, = plt.plot(bins, fmn, 'g')
+    bmplot, = plt.plot(bins, bmn, 'b')
     plt.title('forward and backward means')
+    plt.legend([fmplot, bmplot], ["forward mean", "backward mean"])
     plt.show()
       
 alg()
