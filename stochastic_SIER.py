@@ -2,24 +2,24 @@
 
 from numpy import *
 from random import *
+import pickle
 import matplotlib.pyplot as plt
 plt.rcdefaults()
 
 def model():
     #parameters
-    bet = .7 #contact rate
-    sig = .7 #transfer rate
-    gam = .7 #recovery rate
+    bet = .5 #contact rate
+    sig = .5 #transfer rate
+    gam = .5 #recovery rate
     ne = 3 #number of latent compartments
     ni = 3 #number of inf compartments
     t = 0.0 #time
-    ent = 75; #end time
+    ent = 100; #end time
     inter_size = int(1.0) #size of discrete time interval
     bins = int(ent/inter_size) #number of discrete time intervals
     
-    
-    ipop = 15000 #inital population
-    iinf = 25 #inital infection
+    ipop = 10000 #inital population
+    iinf = 100 #inital infection
     inf_time = array([-1]*ipop)#records time of infection for each person
     inf_time[0:iinf] = 0
     
@@ -39,11 +39,19 @@ def model():
     
     b_ppl = [0]*(iinf)+[None]*(ipop-iinf) #backwards interval for ppl
     f_ppl = [[]]*ipop #forwards interval for ppl
+    intervals_info = [] # all generation intervals, (time of infection of y, person y who got infected, person x who infected, time of x infection, generation interval)
     npp = [] #record number of people in each compartment per time (testing purposes)
+   
+    g_mean_time = [] #record evolving generating mean in list
+    g_mean_current = 0;  #current evolving mean
+    g = 0; #current generation time at this step
+    intrinsic_gmean = ne*1/sig + ni*1/gam #average of intrensic interval
     
-    b_dist = []
+    steps = 0; #record number of steps
     
     while t < ent: #stochastic step
+        steps += 1
+        
         s = len(ppl[0]) #numer of susptible
         lat = array( [len(ppl[i]) for i in range(1,1+ne) ] ) #number of latents
         inf = array( [len(ppl[i]) for i in range(1+ne,1+ne+ni) ] ) #number of infected
@@ -83,6 +91,8 @@ def model():
             b_ppl[sus_person] = g
             f_ppl[inf_person] = f_ppl[inf_person]+ [g]
             
+            intervals_info.append([t+tao, sus_person, inf_person, inf_time[inf_person], g])
+            
         elif event <= lam_s+lam_e:
             #move person in one of latent compartments
             comp = 1+choice( [i for i, j in enumerate(map(bool, ppl[1:ne+1] )) if j] ) #pick nonempty latent compartment
@@ -103,8 +113,10 @@ def model():
         else:
             print 'something bad'
         t = t+tao
-        #print 'end step', t
-        #print 'ppl status', ppl
+        
+        #update evolving generation mean
+        g_mean_current +=g 
+        g_mean_time.append([g_mean_current/steps, intrinsic_gmean])
    
     sus_data = [i[0] for i in npp]
     lat_data = [i[1] for i in npp]
@@ -116,6 +128,11 @@ def model():
     latplot, = plt.plot(time_data, lat_data, 'b--')
     plt.legend([susplot, infplot, latplot], ["suseptible", "infected first cmpt", "latent first cmpt"])
     plt.title('Suseptibles, Latents, Infected evolutions')
+    plt.show()
+
+    gmean,   = plt.plot(time_data, [i[0] for i in g_mean_time], 'r')
+    intrinsic_gmean,   = plt.plot(time_data, [i[1] for i in g_mean_time], 'b')
+    plt.title('evolution of generation mean')
     plt.show()
     
     #calculate intervals
@@ -135,6 +152,10 @@ def model():
             for e in f_ppl[i]:
                 gdic = int( (e-(e%inter_size)) / inter_size )  #dicrete size of gen interval
                 fdist[tdic] = fdist[tdic] + [gdic]
+                
+    #save to file            
+    #with open('backward_intervals_2.txt', 'wb') as f:
+    #    pickle.dump(intervals_info, f)
    
     #extract means
     for i in range(0,len(bdist)):
@@ -143,6 +164,9 @@ def model():
         if fdist[i]:
             fmean[i] = mean(fdist[i])
         
+
+   
+    
     return [array(fmean), array(bmean)]
     
 def alg():
@@ -159,8 +183,8 @@ def alg():
     bmn /= reps
     
     plt.figure(2)
-    fmplot, = plt.plot(bins, fmn, 'g')
-    bmplot, = plt.plot(bins, bmn, 'b')
+    fmplot, = plt.plot(bins, fmn, 'g--')
+    bmplot, = plt.plot(bins, bmn, 'b--')
     plt.title('forward and backward means')
     plt.legend([fmplot, bmplot], ["forward mean", "backward mean"])
     plt.show()
